@@ -3,12 +3,16 @@ const BETVORA_LOGO = 'favicon.svg';
 
 const menuBtn = document.getElementById('menuBtn');
 const mobileNav = document.getElementById('mobileNav');
-menuBtn?.addEventListener('click', () => { const open = mobileNav.classList.toggle('open'); menuBtn.setAttribute('aria-expanded', String(open)); menuBtn.textContent = open ? '×' : '☰'; });
-document.querySelectorAll('.mobile-nav a').forEach((link) => link.addEventListener('click', () => { mobileNav.classList.remove('open'); menuBtn.setAttribute('aria-expanded', 'false'); menuBtn.textContent = '☰'; }));
-
-const logoIds = {
-  Arsenal: 9825, 'Aston Villa': 10252, Bournemouth: 8678, Brentford: 9937, 'Brighton and Hove Albion': 10204, 'Brighton & Hove Albion': 10204, Chelsea: 8455, 'Crystal Palace': 9826, Everton: 8668, Fulham: 9879, 'Leeds United': 8463, Liverpool: 8650, 'Manchester City': 8456, 'Manchester United': 10260, 'Newcastle United': 10261, 'Nottingham Forest': 10203, Sunderland: 8472, 'Tottenham Hotspur': 8586, Tottenham: 8586, 'West Ham United': 8654, 'Wolverhampton Wanderers': 8602, 'Real Madrid': 8633, Barcelona: 8634, 'Atletico Madrid': 8639, 'Atlético Madrid': 8639, 'Bayern Munich': 9823, 'Borussia Dortmund': 9789, 'Inter Milan': 8636, Inter: 8636, 'AC Milan': 8564, Juventus: 9885, 'Paris Saint-Germain': 9847, PSG: 9847
-};
+menuBtn?.addEventListener('click', () => {
+  const open = mobileNav.classList.toggle('open');
+  menuBtn.setAttribute('aria-expanded', String(open));
+  menuBtn.textContent = open ? '×' : '☰';
+});
+document.querySelectorAll('.mobile-nav a').forEach((link) => link.addEventListener('click', () => {
+  mobileNav?.classList.remove('open');
+  menuBtn?.setAttribute('aria-expanded', 'false');
+  if (menuBtn) menuBtn.textContent = '☰';
+}));
 
 const leagueImages = [
   'https://images.unsplash.com/photo-1579952363873-27f3bade9f55?auto=format&fit=crop&w=900&q=80',
@@ -19,54 +23,264 @@ const leagueImages = [
   'https://images.unsplash.com/photo-1560272564-c83b66b1ad12?auto=format&fit=crop&w=900&q=80'
 ];
 
-function teamLogoUrl(team) { const id = logoIds[team]; return id ? `https://images.fotmob.com/image_resources/logo/teamlogo/${id}.png` : BETVORA_LOGO; }
-function teamBadge(team) {
-  const name = String(team || 'Unknown team');
-  const src = teamLogoUrl(name);
-  return `<span class="team-badge"><img src="${src}" alt="${escapeHtml(name)} logo" loading="lazy" onerror="this.onerror=null;this.src='${BETVORA_LOGO}'"></span>`;
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
 }
-function escapeHtml(value) { return String(value ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#039;'); }
-function formatKickoff(iso) { if (!iso) return 'TBA'; return new Intl.DateTimeFormat(undefined, { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(iso)); }
-function isLiveEvent(event) { return Boolean(event?.commence_time && new Date(event.commence_time).getTime() <= Date.now() && !event.completed); }
-async function getJson(path) { const response = await fetch(`${API_BASE}${path}`); const data = await response.json(); if (!response.ok || data?.ok === false) throw new Error(data?.error || 'Unable to load football data'); return data; }
-async function getFootballLeagues() { return getJson('/api/odds/football/leagues'); }
+
+function formatKickoff(iso) {
+  if (!iso) return 'TBA';
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return 'TBA';
+  return new Intl.DateTimeFormat(undefined, {
+    day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'
+  }).format(date);
+}
+
+function formatDateOnly(iso) {
+  if (!iso) return 'TBA';
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return 'TBA';
+  return new Intl.DateTimeFormat(undefined, {
+    weekday: 'short', day: '2-digit', month: 'short'
+  }).format(date);
+}
+
+function apiFootballFixtureStatus(fixture) {
+  const status = fixture?.fixture?.status || {};
+  if (status.short === 'HT') return 'HALF TIME';
+  if (status.short === 'PST') return 'POSTPONED';
+  if (status.short === 'CANC') return 'CANCELLED';
+  if (status.short === 'ABD') return 'ABANDONED';
+  if (status.short === 'FT' || status.short === 'AET' || status.short === 'PEN') return 'FINISHED';
+  if (status.elapsed) return `LIVE ${status.elapsed}'`;
+  return formatKickoff(fixture?.fixture?.date);
+}
+
+function isLiveFixture(fixture) {
+  const short = fixture?.fixture?.status?.short;
+  return Boolean(fixture?.fixture?.status?.elapsed) || ['1H', '2H', 'ET', 'P', 'LIVE', 'HT'].includes(short);
+}
+
+function teamLogoUrl(team) {
+  return team?.logo || BETVORA_LOGO;
+}
+
+function teamBadge(team) {
+  const name = String(team?.name || team || 'Unknown team');
+  const src = team?.logo || BETVORA_LOGO;
+  return `<span class="team-badge"><img src="${escapeHtml(src)}" alt="${escapeHtml(name)} logo" loading="lazy" onerror="this.onerror=null;this.src='${BETVORA_LOGO}'"></span>`;
+}
+
+async function getJson(path) {
+  const response = await fetch(`${API_BASE}${path}`, { headers: { Accept: 'application/json' } });
+  let data = null;
+  try { data = await response.json(); } catch (_) {}
+  if (!response.ok || data?.ok === false) {
+    const providerMessage = data?.provider?.message || data?.provider?.error || '';
+    throw new Error(providerMessage || data?.error || `Request failed (${response.status})`);
+  }
+  return data;
+}
+
+function normalizeLeague(item) {
+  const league = item?.league || item;
+  const country = item?.country || {};
+  const seasons = Array.isArray(item?.seasons) ? item.seasons : [];
+  const currentSeason = seasons.find((season) => season.current) || seasons[0];
+  return {
+    id: league?.id,
+    name: league?.name || 'Football competition',
+    type: league?.type || 'League',
+    logo: league?.logo || BETVORA_LOGO,
+    country: country?.name || 'International',
+    code: country?.code || '',
+    season: currentSeason?.year || new Date().getFullYear()
+  };
+}
+
+async function getFootballLeagues() {
+  const data = await getJson('/api/football/leagues');
+  return (data?.response || []).map(normalizeLeague);
+}
 
 function leagueCard(league, index = 0) {
   const image = leagueImages[index % leagueImages.length];
-  return `<article class="league-photo-card"><div class="league-photo"><img src="${image}" alt="${escapeHtml(league.title)} football" loading="lazy"><span>${league.active ? 'LIVE FEED' : 'FOOTBALL'}</span></div><div class="league-photo-info"><div><strong>${escapeHtml(league.title)}</strong><small>${escapeHtml(league.group || 'Football')} · ${escapeHtml(league.key)}</small></div><span class="league-dot"></span></div></article>`;
+  const logo = league.logo || BETVORA_LOGO;
+  return `<article class="league-photo-card">
+    <div class="league-photo">
+      <img src="${image}" alt="${escapeHtml(league.name)} football" loading="lazy">
+      <span>${escapeHtml(league.type || 'FOOTBALL')}</span>
+    </div>
+    <div class="league-photo-info">
+      <div class="league-title-row">
+        <img class="league-mini-logo" src="${escapeHtml(logo)}" alt="${escapeHtml(league.name)} logo" onerror="this.onerror=null;this.src='${BETVORA_LOGO}'">
+        <div><strong>${escapeHtml(league.name)}</strong><small>${escapeHtml(league.country)} · ${escapeHtml(String(league.season))}</small></div>
+      </div>
+      <span class="league-dot"></span>
+    </div>
+  </article>`;
 }
 
-function matchCard(event, live = false) {
-  const home = escapeHtml(event.home_team || 'Home'); const away = escapeHtml(event.away_team || 'Away'); const scores = Array.isArray(event.scores) ? event.scores : []; const score = scores.length ? `${scores[0]?.score ?? 0} - ${scores[1]?.score ?? 0}` : '—'; const status = live ? 'LIVE' : formatKickoff(event.commence_time);
-  return `<article class="live-match-card ${live ? 'is-live' : ''}"><div class="match-top"><span class="competition-label">${escapeHtml(event.sport_title || event.sport_key || 'Football')}</span><span class="match-status">${status}</span></div><div class="teams-row"><div class="team-side">${teamBadge(event.home_team)}<strong>${home}</strong></div><div class="match-score">${score}</div><div class="team-side away">${teamBadge(event.away_team)}<strong>${away}</strong></div></div><div class="match-bottom"><span>${live ? 'Live match' : 'Upcoming fixture'}</span><b>Betvora odds via WebSocket</b></div></article>`;
+function matchCard(fixture, live = false) {
+  const home = fixture?.teams?.home || {};
+  const away = fixture?.teams?.away || {};
+  const goals = fixture?.goals || {};
+  const league = fixture?.league || {};
+  const scoreAvailable = goals.home !== null && goals.home !== undefined && goals.away !== null && goals.away !== undefined;
+  const score = scoreAvailable ? `${goals.home} - ${goals.away}` : '—';
+  const status = live ? apiFootballFixtureStatus(fixture) : formatKickoff(fixture?.fixture?.date);
+  const fixtureId = fixture?.fixture?.id || '';
+  const competition = league.name || 'Football';
+
+  return `<article class="live-match-card ${live ? 'is-live' : ''}" data-fixture-id="${escapeHtml(fixtureId)}">
+    <div class="match-top">
+      <span class="competition-label">${escapeHtml(competition)}</span>
+      <span class="match-status">${escapeHtml(status)}</span>
+    </div>
+    <div class="teams-row">
+      <div class="team-side">${teamBadge(home)}<strong>${escapeHtml(home.name || 'Home')}</strong></div>
+      <div class="match-score">${escapeHtml(score)}</div>
+      <div class="team-side away">${teamBadge(away)}<strong>${escapeHtml(away.name || 'Away')}</strong></div>
+    </div>
+    <div class="match-bottom">
+      <span>${live ? `${escapeHtml(league.country || 'Football')} · Live` : formatDateOnly(fixture?.fixture?.date)}</span>
+      <b>Betvora odds via WebSocket</b>
+    </div>
+  </article>`;
+}
+
+function setLoading(element, text = 'Loading football data…') {
+  if (element) element.innerHTML = `<div class="data-loading">${escapeHtml(text)}</div>`;
 }
 
 async function loadFootballPage() {
-  const leagueSelect = document.getElementById('footballLeagueSelect'); const leagueGrid = document.getElementById('footballLeagueGrid'); const matchesGrid = document.getElementById('footballMatches'); const message = document.getElementById('footballDataMessage');
+  const leagueSelect = document.getElementById('footballLeagueSelect');
+  const leagueGrid = document.getElementById('footballLeagueGrid');
+  const matchesGrid = document.getElementById('footballMatches');
+  const message = document.getElementById('footballDataMessage');
   if (!matchesGrid) return;
+
+  setLoading(leagueGrid, 'Loading football competitions…');
+  setLoading(matchesGrid, 'Loading fixtures…');
+
   try {
-    const leagues = await getFootballLeagues(); const featured = leagues.filter((league) => league.active).slice(0, 12);
-    if (leagueSelect) { leagueSelect.innerHTML = '<option value="all">All active football</option>' + featured.map((league) => `<option value="${escapeHtml(league.key)}">${escapeHtml(league.title)}</option>`).join(''); leagueSelect.addEventListener('change', () => loadFootballMatches(leagueSelect.value)); }
-    if (leagueGrid) leagueGrid.innerHTML = featured.map((league, index) => leagueCard(league, index)).join('') || '<div class="data-empty">No active football competitions found.</div>';
-    await loadFootballMatches('all'); if (message) message.textContent = 'Football competitions and fixtures are connected to Betvora’s backend.';
-  } catch (error) { if (message) message.textContent = `Football data is temporarily unavailable: ${error.message}`; matchesGrid.innerHTML = '<div class="data-empty">Unable to load matches right now. Please refresh in a moment.</div>'; }
+    const leagues = await getFootballLeagues();
+    const featured = leagues.filter((league) => league.id).slice(0, 24);
+
+    if (leagueSelect) {
+      leagueSelect.innerHTML = '<option value="all">All upcoming football</option>' + featured.map((league) =>
+        `<option value="${escapeHtml(league.id)}">${escapeHtml(league.name)} · ${escapeHtml(league.country)}</option>`
+      ).join('');
+      leagueSelect.onchange = () => loadFootballMatches(leagueSelect.value);
+    }
+
+    if (leagueGrid) {
+      leagueGrid.innerHTML = featured.length
+        ? featured.map((league, index) => leagueCard(league, index)).join('')
+        : '<div class="data-empty">No football competitions found.</div>';
+    }
+
+    await loadFootballMatches('all');
+    if (message) message.textContent = `API-Football is connected. ${leagues.length} football competitions are available to Betvora.`;
+  } catch (error) {
+    if (message) message.textContent = `Football data is temporarily unavailable: ${error.message}`;
+    matchesGrid.innerHTML = `<div class="data-empty">Unable to load football data right now. ${escapeHtml(error.message)}</div>`;
+  }
 }
 
-async function loadFootballMatches(sport) {
-  const matchesGrid = document.getElementById('footballMatches'); if (!matchesGrid) return; matchesGrid.innerHTML = '<div class="data-loading">Loading football matches…</div>';
-  try { const leagues = await getFootballLeagues(); const active = leagues.filter((league) => league.active); const selected = sport === 'all' ? active.slice(0, 12) : active.filter((league) => league.key === sport); const responses = await Promise.all(selected.map((league) => getJson(`/api/odds/football?sport=${encodeURIComponent(league.key)}`))); const events = responses.flat().sort((a, b) => new Date(a.commence_time) - new Date(b.commence_time)).slice(0, 36); matchesGrid.innerHTML = events.length ? events.map((event) => matchCard(event)).join('') : '<div class="data-empty">No football fixtures are currently listed.</div>'; } catch (error) { matchesGrid.innerHTML = `<div class="data-empty">${escapeHtml(error.message)}</div>`; }
+async function loadFootballMatches(leagueId = 'all') {
+  const matchesGrid = document.getElementById('footballMatches');
+  if (!matchesGrid) return;
+  setLoading(matchesGrid, 'Loading fixtures from API-Football…');
+
+  try {
+    let path;
+    if (leagueId !== 'all') {
+      const leagues = await getFootballLeagues();
+      const selected = leagues.find((league) => String(league.id) === String(leagueId));
+      const season = selected?.season || new Date().getFullYear();
+      path = `/api/football/fixtures?league=${encodeURIComponent(leagueId)}&season=${encodeURIComponent(season)}`;
+    } else {
+      path = '/api/football/fixtures?next=50';
+    }
+
+    const data = await getJson(path);
+    const fixtures = Array.isArray(data?.response) ? data.response : [];
+    const upcoming = fixtures
+      .filter((fixture) => !isLiveFixture(fixture))
+      .sort((a, b) => new Date(a?.fixture?.date || 0) - new Date(b?.fixture?.date || 0))
+      .slice(0, 50);
+
+    matchesGrid.innerHTML = upcoming.length
+      ? upcoming.map((fixture) => matchCard(fixture)).join('')
+      : '<div class="data-empty">No upcoming fixtures are currently available.</div>';
+  } catch (error) {
+    matchesGrid.innerHTML = `<div class="data-empty">${escapeHtml(error.message)}</div>`;
+  }
 }
 
 async function loadLivePage() {
-  const hero = document.getElementById('liveHeroMatches'); const liveGrid = document.getElementById('liveFootballMatches'); const upcomingGrid = document.getElementById('liveUpcomingMatches'); const message = document.getElementById('liveDataMessage'); const leagueGrid = document.getElementById('liveLeagueGrid');
+  const hero = document.getElementById('liveHeroMatches');
+  const liveGrid = document.getElementById('liveFootballMatches');
+  const upcomingGrid = document.getElementById('liveUpcomingMatches');
+  const message = document.getElementById('liveDataMessage');
+  const leagueGrid = document.getElementById('liveLeagueGrid');
   if (!liveGrid) return;
+
+  setLoading(liveGrid, 'Loading live football…');
+  setLoading(upcomingGrid, 'Loading upcoming fixtures…');
+  setLoading(leagueGrid, 'Loading competitions…');
+
   try {
-    const leagues = (await getFootballLeagues()).filter((league) => league.active).slice(0, 12); if (leagueGrid) leagueGrid.innerHTML = leagues.map((league, index) => leagueCard(league, index)).join('');
-    const responses = await Promise.all(leagues.map((league) => getJson(`/api/odds/football/scores?sport=${encodeURIComponent(league.key)}&daysFrom=1`))); const events = responses.flat(); const live = events.filter(isLiveEvent).slice(0, 12); const upcoming = events.filter((event) => !isLiveEvent(event) && !event.completed).sort((a, b) => new Date(a.commence_time) - new Date(b.commence_time)).slice(0, 12);
-    liveGrid.innerHTML = live.length ? live.map((event) => matchCard(event, true)).join('') : '<div class="data-empty">No football matches are live right now.</div>'; upcomingGrid.innerHTML = upcoming.length ? upcoming.map((event) => matchCard(event)).join('') : '<div class="data-empty">No upcoming football fixtures found.</div>';
-    if (hero) hero.innerHTML = live.slice(0, 3).map((event) => `<div class="page-list-row"><div>${teamBadge(event.home_team)}<strong>${escapeHtml(event.home_team)}</strong><small>${escapeHtml(event.sport_title || event.sport_key || 'Football')}</small></div><span class="page-score">${Array.isArray(event.scores) ? `${event.scores[0]?.score ?? 0}:${event.scores[1]?.score ?? 0}` : 'LIVE'}</span><div>${teamBadge(event.away_team)}<strong>${escapeHtml(event.away_team)}</strong></div></div>`).join('') || '<div class="page-list-row"><div><strong>No live football</strong><small>We will update this panel automatically</small></div><span>—</span></div>';
-    if (message) message.textContent = 'Live football data is connected to Betvora across multiple competitions.';
-  } catch (error) { liveGrid.innerHTML = `<div class="data-empty">${escapeHtml(error.message)}</div>`; upcomingGrid.innerHTML = ''; if (message) message.textContent = 'The live football feed could not be loaded right now.'; }
+    const leagues = await getFootballLeagues();
+    const featured = leagues.slice(0, 24);
+    if (leagueGrid) leagueGrid.innerHTML = featured.map((league, index) => leagueCard(league, index)).join('');
+
+    const liveData = await getJson('/api/football/live');
+    const liveFixtures = Array.isArray(liveData?.response) ? liveData.response : [];
+    const live = liveFixtures.filter(isLiveFixture);
+
+    liveGrid.innerHTML = live.length
+      ? live.slice(0, 50).map((fixture) => matchCard(fixture, true)).join('')
+      : '<div class="data-empty">No football matches are live right now.</div>';
+
+    if (hero) {
+      hero.innerHTML = live.slice(0, 5).map((fixture) => {
+        const home = fixture?.teams?.home || {};
+        const away = fixture?.teams?.away || {};
+        const goals = fixture?.goals || {};
+        const score = goals.home !== null && goals.home !== undefined && goals.away !== null && goals.away !== undefined
+          ? `${goals.home}:${goals.away}` : 'LIVE';
+        return `<div class="page-list-row">
+          <div>${teamBadge(home)}<strong>${escapeHtml(home.name || 'Home')}</strong><small>${escapeHtml(fixture?.league?.name || 'Football')}</small></div>
+          <span class="page-score">${escapeHtml(score)}</span>
+          <div>${teamBadge(away)}<strong>${escapeHtml(away.name || 'Away')}</strong></div>
+        </div>`;
+      }).join('') || '<div class="page-list-row"><div><strong>No live football</strong><small>Live matches will appear here automatically</small></div><span>—</span></div>';
+    }
+
+    const upcomingData = await getJson('/api/football/fixtures?next=30');
+    const upcoming = (upcomingData?.response || [])
+      .filter((fixture) => !isLiveFixture(fixture))
+      .sort((a, b) => new Date(a?.fixture?.date || 0) - new Date(b?.fixture?.date || 0))
+      .slice(0, 30);
+
+    upcomingGrid.innerHTML = upcoming.length
+      ? upcoming.map((fixture) => matchCard(fixture)).join('')
+      : '<div class="data-empty">No upcoming football fixtures found.</div>';
+
+    if (message) message.textContent = `Live football is connected to API-Football. ${live.length} matches are currently live.`;
+  } catch (error) {
+    liveGrid.innerHTML = `<div class="data-empty">${escapeHtml(error.message)}</div>`;
+    upcomingGrid.innerHTML = '<div class="data-empty">Unable to load upcoming fixtures.</div>';
+    if (message) message.textContent = `The live football feed could not be loaded: ${error.message}`;
+  }
 }
 
-loadFootballPage(); loadLivePage();
+loadFootballPage();
+loadLivePage();
