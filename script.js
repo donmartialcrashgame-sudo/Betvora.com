@@ -1,4 +1,5 @@
 const API_BASE = 'https://football-backend-s094.onrender.com';
+const BETVORA_LOGO = 'favicon.svg';
 
 const menuBtn = document.getElementById('menuBtn');
 const mobileNav = document.getElementById('mobileNav');
@@ -18,8 +19,12 @@ const leagueImages = [
   'https://images.unsplash.com/photo-1560272564-c83b66b1ad12?auto=format&fit=crop&w=900&q=80'
 ];
 
-function teamLogoUrl(team) { const id = logoIds[team]; return id ? `https://images.fotmob.com/image_resources/logo/teamlogo/${id}.png` : ''; }
-function teamBadge(team) { const initials = String(team || '?').replace(/\b(fc|cf|afc|united|city|club)\b/gi, '').trim().split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toUpperCase() || '?'; const src = teamLogoUrl(team); return src ? `<span class="team-badge"><img src="${src}" alt="${escapeHtml(team)} logo" loading="lazy" onerror="this.parentElement.innerHTML='<span>${initials}</span>'"></span>` : `<span class="team-badge"><span>${initials}</span></span>`; }
+function teamLogoUrl(team) { const id = logoIds[team]; return id ? `https://images.fotmob.com/image_resources/logo/teamlogo/${id}.png` : BETVORA_LOGO; }
+function teamBadge(team) {
+  const name = String(team || 'Unknown team');
+  const src = teamLogoUrl(name);
+  return `<span class="team-badge"><img src="${src}" alt="${escapeHtml(name)} logo" loading="lazy" onerror="this.onerror=null;this.src='${BETVORA_LOGO}'"></span>`;
+}
 function escapeHtml(value) { return String(value ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#039;'); }
 function formatKickoff(iso) { if (!iso) return 'TBA'; return new Intl.DateTimeFormat(undefined, { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(iso)); }
 function isLiveEvent(event) { return Boolean(event?.commence_time && new Date(event.commence_time).getTime() <= Date.now() && !event.completed); }
