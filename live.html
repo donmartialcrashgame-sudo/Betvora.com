@@ -1,19 +1,15 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="description" content="Betvora Live — live football scores and match centre.">
-<link rel="icon" href="favicon.svg"><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="pages.css">
-<title>Betvora — Live</title>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="description" content="Betvora Live — live football scores and match centre."><link rel="icon" href="favicon.svg"><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="pages.css"><title>Betvora — Live</title>
 </head>
 <body>
 <header class="site-header"><div class="container nav-wrap"><a class="brand" href="index.html"><span class="brand-mark"><span>B</span></span><span>Betvora</span></a><nav class="desktop-nav"><a href="index.html">Home</a><a class="active" href="live.html">Live</a><a href="football.html">Football</a><a href="sports.html">Sports</a><a href="promotions.html">Promotions</a><a href="about.html">About</a></nav><div class="nav-actions"><a class="login-btn" href="login.html">Login</a><a class="primary-btn small" href="register.html">Sign Up</a></div><button class="menu-btn" id="menuBtn" aria-label="Open menu">☰</button></div><nav class="mobile-nav" id="mobileNav"><a href="index.html">Home</a><a href="live.html">Live</a><a href="football.html">Football</a><a href="sports.html">Sports</a><a href="promotions.html">Promotions</a><a href="about.html">About</a></nav></header>
 <main class="page-main">
-<section class="page-hero"><div class="container page-hero-grid"><div><span class="page-kicker">LIVE CENTRE</span><h1>Every live match.<br><span>Right now.</span></h1><p>Follow football fixtures and live match status directly from the Betvora football data service.</p><a class="primary-btn" href="football.html">Explore football →</a></div><div class="page-panel"><div class="page-panel-title"><b>● LIVE NOW</b><span>Betvora match centre</span></div><div id="liveHeroMatches" class="page-list"><div class="data-loading">Checking live football…</div></div></div></div></section>
+<section class="page-hero live-visual-hero"><div class="container page-hero-grid"><div><span class="page-kicker">LIVE CENTRE</span><h1>Every live match.<br><span>Right now.</span></h1><p>Follow football fixtures and live match status across the world's biggest competitions.</p><a class="primary-btn" href="football.html">Explore football →</a></div><div class="live-hero-visual"><img src="https://images.unsplash.com/photo-1517466787929-bc90951d0974?auto=format&fit=crop&w=1200&q=85" alt="Football stadium and pitch"><div class="live-hero-overlay"><span class="live-pill">● LIVE FOOTBALL</span><strong>Matchday is on.</strong><small>Premier League · LaLiga · Serie A · Bundesliga · Ligue 1 and more</small></div></div></div></section>
 <section class="page-section"><div class="container"><div class="page-heading"><span class="page-kicker">LIVE FEED</span><h2>Matches in play</h2><p id="liveDataMessage">Loading live football data…</p></div><div class="match-grid" id="liveFootballMatches"><div class="data-loading">Loading live matches…</div></div></div></section>
+<section class="page-section league-strip-section"><div class="container"><div class="page-heading"><span class="page-kicker">COMPETITIONS</span><h2>Live football across every league</h2><p>Browse the competitions currently available through the connected football feed.</p></div><div class="card-grid league-photo-grid" id="liveLeagueGrid"><div class="data-loading">Loading leagues…</div></div></div></section>
 <section class="page-section dark"><div class="container"><div class="page-heading"><span class="page-kicker">UP NEXT</span><h2>Coming up</h2><p>Upcoming football fixtures from the connected football data feed.</p></div><div class="match-grid" id="liveUpcomingMatches"><div class="data-loading">Loading upcoming matches…</div></div></div></section>
-<section class="page-cta"><div class="container"><h2>Follow the game as it happens.</h2><p>Betvora's live match centre is now connected to the football event feed. WebSocket odds will be added on top of these events.</p><a class="primary-btn" href="register.html">Sign Up</a></div></section>
-</main>
-<footer class="simple-footer">© 2026 Betvora · <a href="about.html">About</a> · <a href="index.html">Home</a></footer>
-<script src="script.js"></script>
+<section class="page-cta"><div class="container"><h2>Follow the game as it happens.</h2><p>Betvora's live match centre is connected to the football event feed. WebSocket odds will be added on top of these events.</p><a class="primary-btn" href="register.html">Sign Up</a></div></section>
+</main><footer class="simple-footer">© 2026 Betvora · <a href="about.html">About</a> · <a href="index.html">Home</a></footer><script src="script.js"></script>
 </body></html>
